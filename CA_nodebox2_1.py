@@ -1,84 +1,81 @@
 from nodebox.graphics import *
-#import numpy as np
-#np.random.randint(0,2,size=(10,10))
-#import pyglet
 import random
 
-def neighbours(x,y):
-    O=[(x+1,y),(x-1,y),(x,y+1),(x,y-1),(x+1,y+1),(x-1,y-1),(x-1,y+1),(x+1,y-1)]
-    N=set()
-    for a in A:
-        if (a.x, a.y)!=(x,y):
-            if (a.x, a.y) in O: N.add(a)
-    return N
+CELL_SIZE = 10
+GRID_WIDTH = 50
+GRID_HEIGHT = 50
 
-def exist(x,y):
-    for a in A:
-        if (a.x, a.y)==(x,y): return True
-    return False
+A = set()
 
-class CA(object):
+def neighbours(x, y):
+    O = {(x+dx, y+dy) for dx in [-1, 0, 1] for dy in [-1, 0, 1] if not (dx == 0 and dy == 0)}
+    return {(a.x, a.y) for a in A if (a.x, a.y) in O}
+
+def exist(x, y):
+    return any((a.x, a.y) == (x, y) for a in A)
+
+class CA:
     def __init__(self, x, y, live=True):
-        self.x, self.y = x, y
-        self.live=live
+        self.x = x
+        self.y = y
+        self.live = live
+
     def draw(self):
-        fill(self.y/10.0,0,self.x/10.0,1)
-        rect(self.x*10, self.y*10, 10, 10)
+        fill(self.y / float(GRID_HEIGHT), 0, self.x / float(GRID_WIDTH), 1)
+        rect(self.x * CELL_SIZE, self.y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+
     def rule(self):
         x, y = self.x, self.y
-        O=[(x+1,y),(x-1,y),(x,y+1),(x,y-1),(x+1,y+1),(x-1,y-1),(x-1,y+1),(x+1,y-1)]
-        S=set()
-        if y==1: return S
-        if x==1: return S
-        if x in range(10, 15) and y==30: return S
-        if x in range(15, 20) and y==20: return S
-        if x in range(25, 28) and y==10: return S
-        if not exist(x,y-1):
-            S.add((x,y-1))
-            self.live=False
-            return S
-        d=random.choice([-2,-1,-1,0,0,0,1,1,2])
-        if not exist(x-d,y-1):
-            S.add((x-d,y-1))
-            self.live=False
-            return S
-        return S
+        if (x in range(10, 15) and y == 30) or \
+           (x in range(15, 20) and y == 20) or \
+           (x in range(25, 28) and y == 10):
+            return set()
 
+        possible_moves = [(x + dx, y - 1) for dx in [-2, -1, 0, 1, 2]]
+        for nx, ny in possible_moves:
+            if 0 < nx < GRID_WIDTH and 0 < ny < GRID_HEIGHT and not exist(nx, ny):
+                self.live = False
+                return {(nx, ny)}
 
-A={CA(10,10,True), CA(11,10,True), CA(12,10,True)}
+        return set()
 
-def drawGrid(a=0):
+def drawGrid():
     stroke(0, 0.1)
-    for i in range(0,500,10):
-        line(i, 0, i, 500)
-        line(0, i, 500, i)
-
+    for i in range(0, GRID_WIDTH * CELL_SIZE, CELL_SIZE):
+        line(i, 0, i, GRID_HEIGHT * CELL_SIZE)
+        line(0, i, GRID_WIDTH * CELL_SIZE, i)
 
 def draw(canvas):
     global step, pause
-    if canvas.keys.char==" ": pause=not pause
-    if canvas.mouse.button==LEFT:
-        x,y=canvas.mouse.x, canvas.mouse.y
-        x,y=x//10, y//10
-        if not exist(x,y): A.add(CA(x,y))
+    if canvas.keys.char == " ":
+        pause = not pause
+
+    if canvas.mouse.button == LEFT:
+        x, y = canvas.mouse.x // CELL_SIZE, canvas.mouse.y // CELL_SIZE
+        if not exist(x, y):
+            A.add(CA(x, y))
+
     canvas.clear()
     drawGrid()
-    text("Step %d\n\nN %d"%(step, len(A)), 510,450)
+    text(f"Step {step}\n\nCells {len(A)}", GRID_WIDTH * CELL_SIZE + 10, 450)
+
     for a in A:
         a.draw()
-    if canvas.frame%2==0 and not pause:
-        step+=1
-        S=set()
-        for a in A.copy():
-            S.update(a.rule())
-        for a in A.copy():
-            if not a.live: A.remove(a)
-        for i,j in S:
-            if not exist(i,j):
-                if 0<i<50 and 0<j<50: A.add(CA(i,j))
 
+    if canvas.frame % 2 == 0 and not pause:
+        step += 1
+        new_cells = set()
+        for a in list(A):
+            new_cells.update(a.rule())
 
-step=0
-pause=False
-canvas.size = 500, 500
+        A.difference_update({a for a in A if not a.live})
+
+        for i, j in new_cells:
+            if 0 < i < GRID_WIDTH and 0 < j < GRID_HEIGHT:
+                A.add(CA(i, j))
+
+A.update({CA(10, 10), CA(11, 10), CA(12, 10)})
+step = 0
+pause = False
+canvas.size = GRID_WIDTH * CELL_SIZE + 150, GRID_HEIGHT * CELL_SIZE
 canvas.run(draw)
